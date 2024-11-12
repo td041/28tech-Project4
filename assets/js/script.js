@@ -12,6 +12,7 @@ import {
   child,
   onChildRemoved,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+// Import authentication
 import {
   getAuth,
   createUserWithEmailAndPassword,
@@ -19,6 +20,7 @@ import {
   signOut,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+// Thư viện PopperJS
 import * as Popper from "https://cdn.jsdelivr.net/npm/@popperjs/core@^2/dist/esm/index.js";
 // Cấu hình Firebase của bạn
 const firebaseConfig = {
@@ -233,3 +235,24 @@ onChildRemoved(chatsRef, (data) => {
     chatItem.remove();
   }
 });
+// Tính năng chèn icon
+const emojiPicker = document.querySelector("emoji-picker");
+if (emojiPicker) {
+  const button = document.querySelector(".button-icon");
+  const buttonIcon = document.querySelector(".button-icon i");
+  const tooltip = document.querySelector(".tooltip");
+  Popper.createPopper(button, tooltip);
+  button.addEventListener("click", () => {
+    tooltip.classList.toggle("shown");
+  });
+  const inputChat = document.querySelector(".chat .inner-form input[name='content']");
+  emojiPicker.addEventListener("emoji-click", (event) => {
+    const icon = event.detail.unicode;
+    inputChat.value += icon;
+  });
+  document.addEventListener("click", (event) => {
+    if (!emojiPicker.contains(event.target) && event.target != button && event.target != buttonIcon) {
+      tooltip.classList.remove("shown");
+    }
+  });
+}
