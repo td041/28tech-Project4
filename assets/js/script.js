@@ -156,16 +156,48 @@ onAuthStateChanged(auth, (user) => {
 // Tính năng chat cơ bản
 const formChat = document.querySelector("[chat] .inner-form");
 if (formChat) {
-  formChat.addEventListener("submit", (event) => {
+  // Tính năng preview images
+  const upload = new FileUploadWithPreview.FileUploadWithPreview("upload-images", {
+    maxFileCount: 6,
+    multiple: true,
+  });
+  formChat.addEventListener("submit", async (event) => {
     event.preventDefault();
     const content = formChat.content.value;
     const userId = auth.currentUser.uid;
-    if (content && userId) {
+    const images = upload.cachedFileArray || [];
+    if ((content || images.length > 0) && userId) {
+      const imagesLink = [];
+
+      if (images.length > 0) {
+        const url = "https://api.cloudinary.com/v1_1/dp2xjhwpy/image/upload";
+
+        const formData = new FormData();
+
+        for (let i = 0; i < images.length; i++) {
+          let file = images[i];
+          formData.append("file", file);
+          formData.append("upload_preset", "cv7488ma");
+
+          await fetch(url, {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => {
+              return response.json();
+            })
+            .then((data) => {
+              imagesLink.push(data.url);
+            });
+        }
+      }
       set(push(chatsRef), {
         content: content,
+        images: imagesLink,
         userId: userId,
       });
       formChat.content.value = "";
+      upload.resetPreviewPanel();
     }
   });
 }
@@ -176,14 +208,17 @@ if (chatBody) {
     const key = data.key;
     const content = data.val().content;
     const userId = data.val().userId;
+    const images = data.val().images;
     const newChat = document.createElement("div");
+    newChat.setAttribute("chat-key", key);
     get(child(dbRef, `users/${userId}`))
       .then((snapshot) => {
         if (snapshot.exists()) {
           const fullName = snapshot.val().fullName;
-          let htmlFullname = "";
+          let htmlFullName = "";
           let htmlButtonDelete = "";
           if (userId == userCurrent.uid) {
+            // Tin nhắn của chủ tài khoản
             newChat.classList.add("inner-outgoing");
             htmlButtonDelete = `
               <button class="button-delete" button-delete="${key}">
@@ -191,20 +226,36 @@ if (chatBody) {
               </button>
             `;
           } else {
+            // Tin nhắn của người khác
             newChat.classList.add("inner-incoming");
-            htmlFullname = `
+            htmlFullName = `
               <div class="inner-name">
                 ${fullName}
               </div>
             `;
           }
+          // Nội dung tin nhắn
+          let htmlContent = "";
+          if (content) {
+            htmlContent = `
+              <div class="inner-content">
+                ${content}
+              </div>
+            `;
+          }
+          // Hình ảnh
+          let htmlImages = "";
+          if (images && images.length > 0) {
+            htmlImages += ` <div class="inner-images"> `;
+            for (const image of images) {
+              htmlImages += `<img src="${image}">`;
+            }
+            htmlImages += ` </div> `;
+          }
           newChat.innerHTML = `
-            <div class="inner-name">
-              ${htmlFullname}
-            </div>
-            <div class="inner-content">
-              ${content}
-            </div>
+            ${htmlFullName}
+            ${htmlContent}
+            ${htmlImages}
             ${htmlButtonDelete}
           `;
           chatBody.appendChild(newChat);
@@ -213,9 +264,7 @@ if (chatBody) {
           const buttonDelete = newChat.querySelector(".button-delete");
           if (buttonDelete) {
             buttonDelete.addEventListener("click", () => {
-              remove(ref(db, "/chats/" + key)).then(() => {
-                chatBody.removeChild(newChat);
-              });
+              remove(ref(db, "/chats/" + key));
             });
           }
         } else {
